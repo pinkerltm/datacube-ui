@@ -46,7 +46,7 @@
         if (typeof(Worker) !== undefined) {
             var w = new Worker("/static/assets/js/dcw.js");
             w.postMessage({
-                'tool_name': window.tool_name,
+                'tool_name': '{{ tool_name }}',
                 'status': "SINGLE",
                 'result_type': "Single Scene task",
                 'id': id,

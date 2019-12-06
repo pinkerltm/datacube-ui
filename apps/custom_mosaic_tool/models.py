@@ -18,16 +18,20 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import os
 
+from django.conf import settings
 from django.db import models
+from django.core.exceptions import ValidationError
 
 from apps.dc_algorithm.models import Area, Compositor, Satellite
 from apps.dc_algorithm.models import (Query as BaseQuery, Metadata as BaseMetadata, Result as BaseResult, ResultType as
                                       BaseResultType, UserHistory as BaseUserHistory, AnimationType as
                                       BaseAnimationType, ToolInfo as BaseToolInfo)
 from utils.data_cube_utilities.dc_mosaic import (create_mosaic, create_median_mosaic, create_max_ndvi_mosaic,
-                                                 create_min_ndvi_mosaic, create_hdmedians_multiple_band_mosaic)
+                                                 create_min_ndvi_mosaic)
 
+import datetime
 import numpy as np
 
 
@@ -52,6 +56,7 @@ class ResultType(BaseResultType):
     extends base result type, adding additional fields required by app.
     See the dc_algorithm.ResultType docstring for more information.
     """
+
     red = models.CharField(max_length=25)
     green = models.CharField(max_length=25)
     blue = models.CharField(max_length=25)
@@ -63,21 +68,24 @@ class AnimationType(BaseAnimationType):
     Extends the base animation type, adding additional fields as required by app.
     See the dc_algorithm.AnimationType docstring for more information.
     """
+
     pass
 
 
 class Query(BaseQuery):
     """
+
     Extends base query, adds app specific elements. See the dc_algorithm.Query docstring for more information
     Defines the get_or_create_query_from_post as required, adds new fields, recreates the unique together
     field, and resets the abstract property. Functions are added to get human readable names for various properties,
     foreign keys should define __str__ for a human readable name.
-    """
-    query_type = models.ForeignKey(ResultType)
-    animated_product = models.ForeignKey(AnimationType)
-    compositor = models.ForeignKey(Compositor)
 
-    base_result_dir = '/datacube/ui_results/custom_mosaic_tool'
+    """
+    query_type = models.ForeignKey(ResultType, on_delete=models.CASCADE)
+    animated_product = models.ForeignKey(AnimationType, on_delete=models.CASCADE)
+    compositor = models.ForeignKey(Compositor, on_delete=models.CASCADE)
+
+    base_result_dir = os.path.join(settings.RESULTS_DATA_DIR, 'custom_mosaic_tool')
 
     class Meta(BaseQuery.Meta):
         unique_together = (
@@ -93,15 +101,17 @@ class Query(BaseQuery):
         """Implements get_chunk_size as required by the base class
 
         See the base query class docstring for more information.
+
         """
         if not self.compositor.is_iterative():
-            return {'time': None, 'geographic': 0.05}
-        return {'time': 50, 'geographic': 0.1}
+            return {'time': None, 'geographic': 0.01}
+        return {'time': 25, 'geographic': 0.5}
 
     def get_iterative(self):
         """implements get_iterative as required by the base class
 
         See the base query class docstring for more information.
+
         """
         return self.compositor.is_iterative()
 
@@ -109,6 +119,7 @@ class Query(BaseQuery):
         """implements get_reverse_time as required by the base class
 
         See the base query class docstring for more information.
+
         """
         return self.compositor.id == "most_recent"
 
@@ -116,13 +127,13 @@ class Query(BaseQuery):
         """implements get_processing_method as required by the base class
 
         See the base query class docstring for more information.
+
         """
         processing_methods = {
             'most_recent': create_mosaic,
             'least_recent': create_mosaic,
             'max_ndvi': create_max_ndvi_mosaic,
             'min_ndvi': create_min_ndvi_mosaic,
-            'geo_median': create_hdmedians_multiple_band_mosaic,
             'median_pixel': create_median_mosaic
         }
 
@@ -140,6 +151,7 @@ class Query(BaseQuery):
 
         Returns:
             Tuple containing the query model and a boolean value signifying if it was created or loaded.
+
         """
         query_data = form_data
         query_data['title'] = "Custom Mosaic Query" if 'title' not in form_data or form_data[
@@ -179,6 +191,7 @@ class Metadata(BaseMetadata):
         """implements metadata_from_dataset as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         for metadata_index, time in enumerate(dataset.time.values.astype('M8[ms]').tolist()):
             clean_pixels = np.sum(clear_mask[metadata_index, :, :] == True)
@@ -195,6 +208,7 @@ class Metadata(BaseMetadata):
         """implements combine_metadata as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         for key in new:
             if key in old:
@@ -207,6 +221,7 @@ class Metadata(BaseMetadata):
         """implements final_metadata_from_dataset as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         self.pixel_count = len(dataset.latitude) * len(dataset.longitude)
         self.clean_pixel_count = np.sum(dataset[list(dataset.data_vars)[0]].values != -9999)
@@ -217,9 +232,11 @@ class Metadata(BaseMetadata):
         """implements metadata_from_dict as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         dates = list(metadata_dict.keys())
         dates.sort(reverse=True)
+
         self.total_scenes = len(dates)
         self.scenes_processed = len(dates)
         self.acquisition_list = ",".join([date.strftime("%m/%d/%Y") for date in dates])
@@ -235,6 +252,7 @@ class Result(BaseResult):
     Extends base result, adding additional fields and adding abstract=True
     See the dc_algorithm.Result docstring for more information
     """
+
     # result path + other data. More to come.
     result_filled_path = models.CharField(max_length=250, default="")
     plot_path = models.CharField(max_length=250, default="")

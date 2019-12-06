@@ -173,9 +173,6 @@ class Area(models.Model):
     def __str__(self):
         return self.id
 
-    class Meta:
-        ordering = ['name'] # Order by name, not id.
-
 
 class Application(models.Model):
     """Model containing the applications that are displayed on the UI.
@@ -210,7 +207,7 @@ class Application(models.Model):
 
     color_scale = models.CharField(max_length=250, default="", blank=True, null=True)
 
-    application_group = models.ForeignKey('ApplicationGroup', null=True, blank=True)
+    application_group = models.ForeignKey('ApplicationGroup', on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.id
@@ -240,4 +237,4 @@ class Compositor(models.Model):
         return self.name
 
     def is_iterative(self):
-        return self.id not in ["median_pixel", "geo_median", "medoid"]
+        return self.id not in ["median_pixel", "geometric_median", "medoid"]

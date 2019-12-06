@@ -20,7 +20,7 @@
         if (typeof(Worker) !== undefined) {
             var w = new Worker("/static/assets/js/dcw.js");
             w.postMessage({
-                'tool_name': window.tool_name,
+                'tool_name': '{{ tool_name }}',
                 'status': "HISTORY",
                 'title': "Task from history",
                 'id': id,

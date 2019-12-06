@@ -47,7 +47,18 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
-MASTER_NODE = '127.0.0.1'
+# Database settings from the environment or default
+db_user = os.environ.get('POSTGRES_USER', 'dc_user')
+db_pass = os.environ.get('POSTGRES_PASSWORD', 'localuser1234')
+db_name = os.environ.get('POSTGRES_DATABASE', db_user)
+db_host = os.environ.get('POSTGRES_HOSTNAME', '127.0.0.1')
+db_port = os.environ.get('POSTGRES_PORT', '5432')
+dc_name = os.environ.get('DB_DATABASE', 'odc')
+
+# Set the master node from the environment of from the db host
+MASTER_NODE = os.environ.get('DC_HOSTNAME', db_host)
+
+redis_host = os.environ.get('REDIS_HOSTNAME', '172.21.0.3')
 
 # Application definition
 BASE_HOST = "localhost:8000/"
@@ -56,6 +67,8 @@ EMAIL_HOST = 'localhost'
 EMAIL_PORT = '25'
 
 LOCAL_USER = "localuser"
+
+RESULTS_DATA_DIR = "/datacube/ui_results"
 
 INSTALLED_APPS = [
     'apps.custom_mosaic_tool',
@@ -69,7 +82,6 @@ INSTALLED_APPS = [
     'apps.urbanization',
     'apps.cloud_coverage',
     'apps.spectral_indices',
-    'apps.spectral_anomaly',
     'apps.dc_algorithm',
     'apps.pages',
     'apps.accounts',
@@ -84,13 +96,12 @@ INSTALLED_APPS = [
     'bootstrap3',
 ]
 
-MIDDLEWARE_CLASSES = [
+MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -134,30 +145,25 @@ WSGI_APPLICATION = 'data_cube_ui.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
 
-db_user = os.environ.get('POSTGRES_USER', 'dc_user')
-db_pass = os.environ.get('POSTGRES_PASSWORD', 'localuser1234')
-db_name = os.environ.get('POSTGRES_DATABASE', 'datacube')
-db_host = os.environ.get('POSTGRES_HOSTNAME', '127.0.0.1')
-db_port = os.environ.get('POSTGRES_PORT', '5432')
-
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME':db_name,
+        'NAME': db_name,
         'USER': db_user,
         'PASSWORD': db_pass,
         'HOST': db_host,
-        'PORT': db_port
+        'PORT': db_port,
     },
     'agdc': {
         'ENGINE': 'django.db.backends.postgresql',
         'OPTIONS': {
             'options': '-c search_path=agdc'
         },
-        'NAME': db_name,
+        'NAME': dc_name,
         'USER': db_user,
         'PASSWORD': db_pass,
+        'HOST': db_host,
+        'PORT': db_port,
     },
 }
 
@@ -199,13 +205,13 @@ STATIC_URL = '/static/'
 STATIC_ROOT = '/static/'
 
 STATICFILES_DIRS = [
-    '/home/' + LOCAL_USER + '/Datacube/data_cube_ui/static',
+    os.path.join(BASE_DIR, 'static'),
 ]
 
 # CELERY STUFF
 
-BROKER_URL = 'redis://' + MASTER_NODE + ':6379'
-CELERY_RESULT_BACKEND = 'redis://' + MASTER_NODE + ':6379'
+BROKER_URL = 'redis://' + redis_host + ':6379'
+CELERY_RESULT_BACKEND = 'redis://' + redis_host + ':6379'
 CELERY_ACCEPT_CONTENT = ['pickle']
 CELERY_TASK_SERIALIZER = 'pickle'
 CELERY_RESULT_SERIALIZER = 'pickle'

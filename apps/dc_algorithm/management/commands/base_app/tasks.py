@@ -17,7 +17,6 @@ from utils.data_cube_utilities.dc_utilities import (create_cfmask_clean_mask, cr
 from utils.data_cube_utilities.dc_chunker import (create_geographic_chunks, create_time_chunks,
                                                   combine_geographic_chunks)
 from apps.dc_algorithm.utils import create_2d_plot
-from utils.data_cube_utilities.import_export import export_xarray_to_netcdf
 
 from .models import AppNameTask
 from apps.dc_algorithm.models import Satellite
@@ -325,9 +324,9 @@ def processing_task(task_id=None,
                 #need to clear out all the metadata..
                 clear_attrs(data)
                 #can't reindex on time - weird?
-                export_xarray_to_netcdf(data.isel(time=0).drop('time'), path)
+                data.isel(time=0).drop('time').to_netcdf(path)
             elif task.animated_product.animation_id == "cumulative":
-                export_xarray_to_netcdf(iteration_data, path)
+                iteration_data.to_netcdf(path)
 
         task.scenes_processed = F('scenes_processed') + 1
         task.save()
@@ -336,7 +335,7 @@ def processing_task(task_id=None,
         return None
 
     path = os.path.join(task.get_temp_path(), chunk_id + ".nc")
-    export_xarray_to_netcdf(iteration_data, path)
+    iteration_data.to_netcdf(path)
     dc.close()
     logger.info("Done with chunk: " + chunk_id)
     return path, metadata, {'geo_chunk_id': geo_chunk_id, 'time_chunk_id': time_chunk_id}
@@ -358,8 +357,6 @@ def recombine_geographic_chunks(chunks, task_id=None):
     logger.info("RECOMBINE_GEO")
     total_chunks = [chunks] if not isinstance(chunks, list) else chunks
     total_chunks = [chunk for chunk in total_chunks if chunk is not None]
-    if len(total_chunks) == 0:
-        return None
     geo_chunk_id = total_chunks[0][2]['geo_chunk_id']
     time_chunk_id = total_chunks[0][2]['time_chunk_id']
 
@@ -370,7 +367,7 @@ def recombine_geographic_chunks(chunks, task_id=None):
 
     for index, chunk in enumerate(total_chunks):
         metadata = task.combine_metadata(metadata, chunk[1])
-        chunk_data.append(xr.open_dataset(chunk[0]))
+        chunk_data.append(xr.open_dataset(chunk[0], autoclose=True))
 
     combined_data = combine_geographic_chunks(chunk_data)
 
@@ -387,13 +384,13 @@ def recombine_geographic_chunks(chunks, task_id=None):
                 path = os.path.join(task.get_temp_path(),
                                     "animation_{}_{}.nc".format(str(geo_chunk_index), str(base_index + index)))
                 if os.path.exists(path):
-                    animated_data.append(xr.open_dataset(path))
+                    animated_data.append(xr.open_dataset(path, autoclose=True))
             path = os.path.join(task.get_temp_path(), "animation_{}.nc".format(base_index + index))
             if len(animated_data) > 0:
-                export_xarray_to_netcdf(combine_geographic_chunks(animated_data), path)
+                combine_geographic_chunks(animated_data).to_netcdf(path)
 
     path = os.path.join(task.get_temp_path(), "recombined_geo_{}.nc".format(time_chunk_id))
-    export_xarray_to_netcdf(combined_data, path)
+    combined_data.to_netcdf(path)
     logger.info("Done combining geographic chunks for time: " + str(time_chunk_id))
     return path, metadata, {'geo_chunk_id': geo_chunk_id, 'time_chunk_id': time_chunk_id}
 
@@ -417,8 +414,6 @@ def recombine_time_chunks(chunks, task_id=None):
     #sorting based on time id - earlier processed first as they're incremented e.g. 0, 1, 2..
     chunks = chunks if isinstance(chunks, list) else [chunks]
     chunks = [chunk for chunk in chunks if chunk is not None]
-    if len(chunks) == 0:
-        return None
     total_chunks = sorted(chunks, key=lambda x: x[0]) if isinstance(chunks, list) else [chunks]
     task = AppNameTask.objects.get(pk=task_id)
     geo_chunk_id = total_chunks[0][2]['geo_chunk_id']
@@ -431,7 +426,7 @@ def recombine_time_chunks(chunks, task_id=None):
         for index in range((task.get_chunk_size()['time'] if task.get_chunk_size()['time'] is not None else 1)):
             path = os.path.join(task.get_temp_path(), "animation_{}.nc".format(base_index + index))
             if os.path.exists(path):
-                animated_data = xr.open_dataset(path)
+                animated_data = xr.open_dataset(path, autoclose=True)
                 if task.animated_product.animation_id == "cumulative":
                     animated_data = xr.concat([animated_data], 'time')
                     animated_data['time'] = [0]
@@ -452,7 +447,7 @@ def recombine_time_chunks(chunks, task_id=None):
     combined_data = None
     for index, chunk in enumerate(total_chunks):
         metadata.update(chunk[1])
-        data = xr.open_dataset(chunk[0])
+        data = xr.open_dataset(chunk[0], autoclose=True)
         if combined_data is None:
             # TODO: If there is no animation, remove this.
             if task.animated_product.animation_id != "none":
@@ -474,7 +469,7 @@ def recombine_time_chunks(chunks, task_id=None):
             generate_animation(index, combined_data)
 
     path = os.path.join(task.get_temp_path(), "recombined_time_{}.nc".format(geo_chunk_id))
-    export_xarray_to_netcdf(combined_data, path)
+    combined_data.to_netcdf(path)
     logger.info("Done combining time chunks for geo: " + str(geo_chunk_id))
     return path, metadata, {'geo_chunk_id': geo_chunk_id, 'time_chunk_id': time_chunk_id}
 
@@ -493,7 +488,7 @@ def create_output_products(data, task_id=None):
     """
     logger.info("CREATE_OUTPUT")
     full_metadata = data[1]
-    dataset = xr.open_dataset(data[0])
+    dataset = xr.open_dataset(data[0], autoclose=True)
     task = AppNameTask.objects.get(pk=task_id)
 
     # TODO: Add any paths that you've added in your models.py Result model and remove the ones that aren't there.
@@ -512,7 +507,7 @@ def create_output_products(data, task_id=None):
     # TODO: If you're creating pngs, specify the RGB bands
     png_bands = [task.query_type.red, task.query_type.green, task.query_type.blue]
 
-    export_xarray_to_netcdf(dataset, task.data_netcdf_path)
+    dataset.to_netcdf(task.data_netcdf_path)
     write_geotiff_from_xr(task.data_path, dataset.astype('int32'), bands=bands, no_data=task.satellite.no_data_value)
     write_png_from_xr(
         task.result_path,

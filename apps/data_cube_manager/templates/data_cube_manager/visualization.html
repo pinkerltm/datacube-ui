@@ -53,10 +53,10 @@
       $(".tooltipped").tooltip();
 
       // Map related functionality - generate two leaflet maps, one for the modal and one for the main view.
-      osm = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      osm = new L.TileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: 'Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
       });
-      info_osm = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      info_osm = new L.TileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         noWrap: true,
         attribution: 'Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
       });

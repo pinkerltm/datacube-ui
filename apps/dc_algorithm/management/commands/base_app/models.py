@@ -18,7 +18,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import os
 
+from django.conf import settings
 from django.db import models
 from django.core.exceptions import ValidationError
 
@@ -87,12 +89,12 @@ class Query(BaseQuery):
     """
 
     # TODO: Are there querytypes, animation types, or compositors that need to be distinguished?
-    query_type = models.ForeignKey(ResultType)
-    animated_product = models.ForeignKey(AnimationType)
-    compositor = models.ForeignKey(Compositor)
+    query_type = models.ForeignKey(ResultType, on_delete=models.CASCADE)
+    animated_product = models.ForeignKey(AnimationType, on_delete=models.CASCADE)
+    compositor = models.ForeignKey(Compositor, on_delete=models.CASCADE)
 
     # TODO: Fill out the configuration paths
-    base_result_dir = '/datacube/ui_results/app_name'
+    base_result_dir = os.path.join(settings.RESULTS_DATA_DIR, 'app_name')
 
     class Meta(BaseQuery.Meta):
         unique_together = (

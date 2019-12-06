@@ -18,8 +18,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import os
 
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.conf import settings
 
 from apps.dc_algorithm.models import Area, Compositor, Satellite
@@ -52,13 +54,16 @@ class ToolInfo(BaseToolInfo):
 
 class Query(BaseQuery):
     """
+
     Extends base query, adds app specific elements. See the dc_algorithm.Query docstring for more information
     Defines the get_or_create_query_from_post as required, adds new fields, recreates the unique together
     field, and resets the abstract property. Functions are added to get human readable names for various properties,
     foreign keys should define __str__ for a human readable name.
+
     """
-    color_scale_path = '/home/' + settings.LOCAL_USER + '/Datacube/data_cube_ui/utils/color_scales/cloud_coverage'
-    base_result_dir = '/datacube/ui_results/cloud_coverage'
+
+    color_scale_path = os.path.join(settings.BASE_DIR, 'utils/color_scales/cloud_coverage')
+    base_result_dir = os.path.join(settings.RESULTS_DATA_DIR, 'cloud_coverage')
 
     class Meta(BaseQuery.Meta):
         unique_together = (('satellite', 'area_id', 'time_start', 'time_end', 'latitude_max', 'latitude_min',
@@ -73,13 +78,16 @@ class Query(BaseQuery):
         """Implements get_chunk_size as required by the base class
 
         See the base query class docstring for more information.
+
         """
-        return {'time': None, 'geographic': 0.05}
+
+        return {'time': None, 'geographic': 0.10}
 
     def get_iterative(self):
         """implements get_iterative as required by the base class
 
         See the base query class docstring for more information.
+
         """
         return True
 
@@ -87,6 +95,7 @@ class Query(BaseQuery):
         """implements get_reverse_time as required by the base class
 
         See the base query class docstring for more information.
+
         """
         return True
 
@@ -94,6 +103,7 @@ class Query(BaseQuery):
         """implements get_processing_method as required by the base class
 
         See the base query class docstring for more information.
+
         """
 
         def clear_percentage(dataset_in, clean_mask, intermediate_product=None, no_data=-9999):
@@ -107,6 +117,7 @@ class Query(BaseQuery):
             Returns:
                 xarray dataset with total_pixels, total_clear, clear_percentage
             """
+
             num_acq = len(dataset_in.time)
             num_clear = np.sum(clean_mask.astype(np.int8), axis=0)
             if intermediate_product is None:
@@ -141,6 +152,7 @@ class Query(BaseQuery):
 
         Returns:
             Tuple containing the query model and a boolean value signifying if it was created or loaded.
+
         """
         query_data = form_data
         query_data['title'] = "Cloud Coverage Query" if 'title' not in form_data or form_data[
@@ -168,6 +180,7 @@ class Metadata(BaseMetadata):
 
     See the dc_algorithm.Metadata docstring for more information
     """
+
     zipped_metadata_fields = [
         'acquisition_list', 'clean_pixels_per_acquisition', 'clean_pixel_percentages_per_acquisition'
     ]
@@ -179,6 +192,7 @@ class Metadata(BaseMetadata):
         """implements metadata_from_dataset as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         for metadata_index, time in enumerate(dataset.time.values.astype('M8[ms]').tolist()):
             clean_pixels = np.sum(clear_mask[metadata_index, :, :] == True)
@@ -192,6 +206,7 @@ class Metadata(BaseMetadata):
         """implements combine_metadata as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         for key in new:
             if key in old:
@@ -204,6 +219,7 @@ class Metadata(BaseMetadata):
         """implements final_metadata_from_dataset as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         self.pixel_count = len(dataset.latitude) * len(dataset.longitude)
         self.clean_pixel_count = np.sum(dataset[list(dataset.data_vars)[0]].values != -9999)
@@ -214,6 +230,7 @@ class Metadata(BaseMetadata):
         """implements metadata_from_dict as required by the base class
 
         See the base metadata class docstring for more information.
+
         """
         dates = list(metadata_dict.keys())
         dates.sort(reverse=True)
@@ -231,6 +248,7 @@ class Result(BaseResult):
     Extends base result, adding additional fields and adding abstract=True
     See the dc_algorithm.Result docstring for more information
     """
+
     mosaic_path = models.CharField(max_length=250, default="")
     plot_path = models.CharField(max_length=250, default="")
     data_path = models.CharField(max_length=250, default="")
